@@ -64,3 +64,14 @@ func CallBackHandler(ctx *fasthttp.RequestCtx) {
 	ctx.Response.SetStatusCode(fasthttp.StatusOK)
 	fmt.Fprint(ctx, Msg.EventKey)
 }
+
+func Ping(ctx *fasthttp.RequestCtx) {
+	query := ctx.Request.URI().QueryArgs()
+	msg := string(query.Peek("ping"))
+	ctx.Response.SetStatusCode(fasthttp.StatusOK)
+	if msg != "" {
+		fmt.Fprint(ctx, fmt.Sprintf("Got msg:%v", msg))
+		return
+	}
+	fmt.Fprint(ctx, "pong!")
+}
