@@ -3,22 +3,26 @@ package handler
 import (
 	"encoding/xml"
 	"fmt"
+	"time"
 	"weixinapi/api"
 	"weixinapi/utils/wxbizjsonmsgcrypt"
 
+	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
 
 const (
-	token          = "FQ1tdOcVjsGneinxwnFnvp0wtAX"
-	receiverId     = "receiverId"
-	encodingAeskey = "hi2vvsGmd9GfTfUbsOarsEuGfCs4GUrCc3Jsc8IjpAD"
+	token          = ""
+	receiverId     = ""
+	encodingAeskey = ""
+	toUsers        = ""
 )
 
 var wxcpt *wxbizjsonmsgcrypt.WXBizMsgCrypt
 
 func init() {
 	wxcpt = wxbizjsonmsgcrypt.NewWXBizMsgCrypt(token, encodingAeskey, receiverId, wxbizjsonmsgcrypt.JsonType)
+	logrus.SetLevel(logrus.TraceLevel)
 }
 
 func CallBackCheckHandler(ctx *fasthttp.RequestCtx) {
@@ -37,6 +41,7 @@ func CallBackCheckHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func CallBackHandler(ctx *fasthttp.RequestCtx) {
+	logrus.Info("CallBack has been called")
 	query := ctx.Request.URI().QueryArgs()
 	reqMsgSign := string(query.Peek("msg_signature"))
 	reqTimestamp := string(query.Peek("timestamp"))
@@ -45,6 +50,7 @@ func CallBackHandler(ctx *fasthttp.RequestCtx) {
 	err := xml.Unmarshal(ctx.Request.Body(), body)
 	ctx.Response.SetStatusCode(fasthttp.StatusInternalServerError)
 	if err != nil {
+		logrus.Error("body unmarshal failed  with:", err.Error())
 		fmt.Fprint(ctx, "")
 		return
 	}
@@ -52,20 +58,32 @@ func CallBackHandler(ctx *fasthttp.RequestCtx) {
 	reqData := []byte(reqDataString)
 	msg, cryptErr := wxcpt.DecryptMsg(reqMsgSign, reqTimestamp, reqNonce, reqData)
 	if nil != cryptErr {
+		logrus.Error("Decrypt failed  with:", cryptErr.ErrMsg)
 		fmt.Fprint(ctx, "")
 		return
 	}
 	Msg := new(api.ButtonClickCallbackRequestBody)
 	err = xml.Unmarshal(msg, Msg)
 	if nil != err {
+		logrus.Error("msg unmarshal failed  with:", err.Error())
 		fmt.Fprint(ctx, "")
 		return
 	}
 	ctx.Response.SetStatusCode(fasthttp.StatusOK)
-	fmt.Fprint(ctx, Msg.EventKey)
+	logrus.Info("unmarshal successed with:", Msg.EventKey)
+	timeStamp := time.Now().Unix()
+	ButtonChangeMsg := MakeButtonStatusChangeResponse(toUsers, receiverId, timeStamp)
+	respStr, err := MakeResponseData(ctx, ButtonChangeMsg, timeStamp)
+	if err != nil {
+		fmt.Fprint(ctx, "")
+		return
+	}
+	logrus.Info("resp with:", respStr)
+	fmt.Fprint(ctx, respStr)
 }
 
 func Ping(ctx *fasthttp.RequestCtx) {
+	logrus.Info("Ping has been called")
 	query := ctx.Request.URI().QueryArgs()
 	msg := string(query.Peek("ping"))
 	ctx.Response.SetStatusCode(fasthttp.StatusOK)
