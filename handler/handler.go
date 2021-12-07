@@ -62,6 +62,7 @@ func CallBackHandler(ctx *fasthttp.RequestCtx) {
 		fmt.Fprint(ctx, "")
 		return
 	}
+	logrus.Info("get callback msg:", string(msg))
 	Msg := new(api.ButtonClickCallbackRequestBody)
 	err = xml.Unmarshal(msg, Msg)
 	if nil != err {
